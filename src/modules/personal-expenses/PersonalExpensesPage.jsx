@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { FiPlus, FiDollarSign, FiUsers, FiTrash2 } from 'react-icons/fi';
+import {
+  FiPlus,
+  FiDollarSign,
+  FiUsers,
+  FiTrash2,
+  FiEdit2,
+  FiImage,
+} from 'react-icons/fi';
 
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -16,111 +23,257 @@ import ExpenseForm from './components/ExpenseForm';
 import LoanForm from './components/LoanForm';
 import ExpenseCharts from './components/ExpenseCharts';
 import LoanChart from './components/LoanChart';
+
 import { useExpenses } from './hooks/useExpenses';
 import { useLoan } from './hooks/useLoan';
-import { exportExpensesPdf, exportLoansPdf } from './utils/pdfExport';
 
-/**
- * PersonalExpensesPage.jsx
- *
- * Loan tab is fully functional —
- *   - "Add Loan" opens LoanForm inside a Modal
- *   - Records saved via useLoan() (localStorage-backed, same pattern as expenses)
- *   - Loan table shows real data + delete action + click-to-toggle status badge
- *   - Summary cards (Given / Taken / Net Balance) calculate from real records
- *
- * Both tabs are data-complete, with date-filtered history and charts.
- */
+import { exportExpensesPdf, exportLoansPdf } from './utils/pdfExport';
 
 export default function PersonalExpensesPage() {
   const [activeTab, setActiveTab] = useState('expenses');
   const [searchDate, setSearchDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'expense' | 'loan', id }
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const [editTarget, setEditTarget] = useState(null);
+
+  // Stores the proof image currently being viewed.
+  const [proofPreview, setProofPreview] = useState(null);
 
   const {
     expenses,
     addExpense,
+    updateExpense,
     deleteExpense,
     isLoading: expensesLoading,
   } = useExpenses();
+
   const {
     loanRecords,
     addLoan,
+    updateLoan,
     deleteLoan,
     toggleStatus,
     isLoading: loanLoading,
   } = useLoan();
 
-  const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalSpent = expenses.reduce(
+    (sum, expense) => sum + Number(expense.amount),
+    0
+  );
 
   const totalGiven = loanRecords
-    .filter((r) => r.type === 'Given')
-    .reduce((sum, r) => sum + Number(r.amount), 0);
+    .filter((record) => record.type === 'Given')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
 
   const totalTaken = loanRecords
-    .filter((r) => r.type === 'Taken')
-    .reduce((sum, r) => sum + Number(r.amount), 0);
+    .filter((record) => record.type === 'Taken')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
 
-  // Net Loan Balance must reflect only OUTSTANDING loans — i.e. records
-  // still marked "Pending". Once a record is marked "Paid" (return ho
-  // chuka hai, chahe humne diya tha ya liya tha), it should stop
-  // affecting the net balance even though it stays visible in the
-  // table/history for record-keeping. The "Loan Given"/"Loan Taken"
-  // summary cards above intentionally keep showing the FULL historical
-  // total (Paid + Pending) — only this net figure is Pending-only.
   const pendingGiven = loanRecords
-    .filter((r) => r.type === 'Given' && r.status === 'Pending')
-    .reduce((sum, r) => sum + Number(r.amount), 0);
+    .filter((record) => record.type === 'Given' && record.status === 'Pending')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
 
   const pendingTaken = loanRecords
-    .filter((r) => r.type === 'Taken' && r.status === 'Pending')
-    .reduce((sum, r) => sum + Number(r.amount), 0);
+    .filter((record) => record.type === 'Taken' && record.status === 'Pending')
+    .reduce((sum, record) => sum + Number(record.amount), 0);
 
   const netLoan = pendingGiven - pendingTaken;
 
-  // STEP 6: filter by the searched date, if one is set.
-  // Summary cards intentionally use the UNFILTERED totals above — they
-  // always reflect the whole picture, while only the tables below narrow
-  // down to a specific day. This matches the voice note request: "aaj 30
-  // date hai, 15 date ka record dhoondna hai" — search narrows the list,
-  // it doesn't change the running totals.
-  //
-  // NEW: also filter by a free-text query, matched (case-insensitive)
-  // against the fields that make sense per tab — Category/Payment/Amount
-  // for Expenses, Name/Type/Amount for Loan. Date filter and text search
-  // combine (AND), so you can narrow by both at once.
   const query = searchQuery.trim().toLowerCase();
 
   const filteredExpenses = expenses
-    .filter((e) => !searchDate || e.date === searchDate)
-    .filter((e) => {
+    .filter((expense) => !searchDate || expense.date === searchDate)
+    .filter((expense) => {
       if (!query) return true;
+
       const haystack = [
-        e.category,
-        e.paymentMethod,
-        e.description,
-        String(e.amount),
+        expense.category,
+        expense.paymentMethod,
+        expense.description,
+        String(expense.amount),
       ]
         .join(' ')
         .toLowerCase();
+
       return haystack.includes(query);
     });
 
   const filteredLoans = loanRecords
-    .filter((r) => !searchDate || r.date === searchDate)
-    .filter((r) => {
+    .filter((record) => !searchDate || record.date === searchDate)
+    .filter((record) => {
       if (!query) return true;
-      const haystack = [r.name, r.type, r.status, String(r.amount)]
+
+      const haystack = [
+        record.name,
+        record.type,
+        record.status,
+        record.description,
+        String(record.amount),
+      ]
         .join(' ')
         .toLowerCase();
+
       return haystack.includes(query);
     });
 
+  /*
+   * Open Add form
+   */
+  const handleAddClick = () => {
+    setEditTarget(null);
+    setIsModalOpen(true);
+  };
+
+  /*
+   * Edit Expense
+   */
+  const handleEditExpense = (row) => {
+    setActiveTab('expenses');
+
+    setEditTarget({
+      type: 'expense',
+      data: row,
+    });
+
+    setIsModalOpen(true);
+  };
+
+  /*
+   * Edit Loan
+   */
+  const handleEditLoan = (row) => {
+    setActiveTab('loan');
+
+    setEditTarget({
+      type: 'loan',
+      data: row,
+    });
+
+    setIsModalOpen(true);
+  };
+
+  /*
+   * Save / Update Expense
+   */
+  const handleExpenseSubmit = (data) => {
+    if (editTarget?.type === 'expense') {
+      updateExpense(editTarget.data.id, data);
+    } else {
+      addExpense(data);
+    }
+
+    setEditTarget(null);
+    setIsModalOpen(false);
+  };
+
+  /*
+   * Save / Update Loan
+   */
+  const handleLoanSubmit = (data) => {
+    if (editTarget?.type === 'loan') {
+      updateLoan(editTarget.data.id, data);
+    } else {
+      addLoan(data);
+    }
+
+    setEditTarget(null);
+    setIsModalOpen(false);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditTarget(null);
+  };
+
+  /*
+   * Delete
+   */
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+
+    if (deleteTarget.type === 'expense') {
+      deleteExpense(deleteTarget.id);
+    } else {
+      deleteLoan(deleteTarget.id);
+    }
+
+    setDeleteTarget(null);
+  };
+
+  /*
+   * Export PDF
+   */
+  const handleExportPdf = () => {
+    if (activeTab === 'expenses') {
+      const filteredTotal = filteredExpenses.reduce(
+        (sum, expense) => sum + Number(expense.amount),
+        0
+      );
+
+      exportExpensesPdf(filteredExpenses, filteredTotal, searchDate);
+    } else {
+      const givenInView = filteredLoans
+        .filter((record) => record.type === 'Given')
+        .reduce((sum, record) => sum + Number(record.amount), 0);
+
+      const takenInView = filteredLoans
+        .filter((record) => record.type === 'Taken')
+        .reduce((sum, record) => sum + Number(record.amount), 0);
+
+      exportLoansPdf(filteredLoans, givenInView, takenInView, searchDate);
+    }
+  };
+
+  /*
+   * Reusable Proof button.
+   */
+  const renderProof = (row) => {
+    if (!row.proof) {
+      return <span className="text-text-muted">—</span>;
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          setProofPreview({
+            src: row.proof,
+            name: row.proofName || 'Payment Proof',
+          })
+        }
+        className="inline-flex items-center gap-1.5 text-accent-blue hover:text-blue-400 transition-colors"
+        title="View proof"
+      >
+        <FiImage size={15} />
+        <span>View Proof</span>
+      </button>
+    );
+  };
+
+  /*
+   * Loan history columns
+   */
   const loanColumns = [
-    { key: 'date', label: 'Date' },
-    { key: 'name', label: 'Name' },
+    {
+      key: 'date',
+      label: 'Date',
+    },
+
+    {
+      key: 'name',
+      label: 'Name',
+    },
+
+    {
+      key: 'description',
+      label: 'Description',
+      render: (row) => row.description || '—',
+    },
+
     {
       key: 'type',
       label: 'Type',
@@ -130,11 +283,13 @@ export default function PersonalExpensesPage() {
         </Badge>
       ),
     },
+
     {
       key: 'amount',
       label: 'Amount',
       render: (row) => `PKR ${Number(row.amount).toLocaleString()}`,
     },
+
     {
       key: 'status',
       label: 'Status',
@@ -146,27 +301,65 @@ export default function PersonalExpensesPage() {
         </button>
       ),
     },
+
+    {
+      key: 'proof',
+      label: 'Proof',
+      render: renderProof,
+    },
+
     {
       key: 'actions',
-      label: '',
+      label: 'Actions',
       render: (row) => (
-        <button
-          onClick={() =>
-            setDeleteTarget({ type: 'loan', id: row.id, label: row.name })
-          }
-          className="text-text-muted hover:text-accent-red transition-colors"
-          title="Delete record"
-        >
-          <FiTrash2 size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleEditLoan(row)}
+            className="text-text-muted hover:text-accent-blue transition-colors"
+            title="Edit loan"
+          >
+            <FiEdit2 size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setDeleteTarget({
+                type: 'loan',
+                id: row.id,
+                label: row.name,
+              })
+            }
+            className="text-text-muted hover:text-accent-red transition-colors"
+            title="Delete loan"
+          >
+            <FiTrash2 size={16} />
+          </button>
+        </div>
       ),
     },
   ];
 
+  /*
+   * Expense history columns
+   */
   const expenseColumns = [
-    { key: 'date', label: 'Date' },
-    { key: 'category', label: 'Category' },
-    { key: 'description', label: 'Description' },
+    {
+      key: 'date',
+      label: 'Date',
+    },
+
+    {
+      key: 'category',
+      label: 'Category',
+    },
+
+    {
+      key: 'description',
+      label: 'Description',
+    },
+
     {
       key: 'paymentMethod',
       label: 'Payment',
@@ -176,86 +369,72 @@ export default function PersonalExpensesPage() {
         </Badge>
       ),
     },
+
     {
       key: 'amount',
       label: 'Amount',
       render: (row) => `PKR ${Number(row.amount).toLocaleString()}`,
     },
+
+    {
+      key: 'proof',
+      label: 'Proof',
+      render: renderProof,
+    },
+
     {
       key: 'actions',
-      label: '',
+      label: 'Actions',
       render: (row) => (
-        <button
-          onClick={() =>
-            setDeleteTarget({
-              type: 'expense',
-              id: row.id,
-              label: row.description,
-            })
-          }
-          className="text-text-muted hover:text-accent-red transition-colors"
-          title="Delete expense"
-        >
-          <FiTrash2 size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleEditExpense(row)}
+            className="text-text-muted hover:text-accent-blue transition-colors"
+            title="Edit expense"
+          >
+            <FiEdit2 size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setDeleteTarget({
+                type: 'expense',
+                id: row.id,
+                label: row.description,
+              })
+            }
+            className="text-text-muted hover:text-accent-red transition-colors"
+            title="Delete expense"
+          >
+            <FiTrash2 size={16} />
+          </button>
+        </div>
       ),
     },
   ];
 
-  const handleAddClick = () => setIsModalOpen(true);
-
-  const handleExpenseSubmit = (data) => {
-    addExpense(data);
-    setIsModalOpen(false);
-  };
-
-  const handleLoanSubmit = (data) => {
-    addLoan(data);
-    setIsModalOpen(false);
-  };
-
-  const handleConfirmDelete = () => {
-    if (!deleteTarget) return;
-    if (deleteTarget.type === 'expense') deleteExpense(deleteTarget.id);
-    else deleteLoan(deleteTarget.id);
-  };
-
-  const handleExportPdf = () => {
-    if (activeTab === 'expenses') {
-      const filteredTotal = filteredExpenses.reduce(
-        (sum, e) => sum + Number(e.amount),
-        0
-      );
-      exportExpensesPdf(filteredExpenses, filteredTotal, searchDate);
-    } else {
-      const givenInView = filteredLoans
-        .filter((r) => r.type === 'Given')
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-      const takenInView = filteredLoans
-        .filter((r) => r.type === 'Taken')
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-      exportLoansPdf(filteredLoans, givenInView, takenInView, searchDate);
-    }
-  };
-
   return (
     <div className="space-y-6 animate-[fadeIn_0.35s_ease-out]">
-      {/* Page header */}
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-text-primary text-2xl font-semibold">
             Personal Expenses
           </h1>
+
           <p className="text-text-secondary text-sm mt-1">
             Track your daily spending and manage loan records.
           </p>
         </div>
+
         <Button icon={FiPlus} onClick={handleAddClick}>
           {activeTab === 'expenses' ? 'Add Expense' : 'Add Loan'}
         </Button>
       </div>
 
-      {/* Summary stats */}
+      {/* Summary */}
       <SummaryCards
         totalSpent={totalSpent}
         totalGiven={totalGiven}
@@ -263,11 +442,10 @@ export default function PersonalExpensesPage() {
         netLoan={netLoan}
       />
 
-      {/* Net Financial Position — combines BOTH tabs' data, always visible
-          regardless of which tab is active, since it's the overall picture. */}
+      {/* Net Financial Position */}
       <NetBalanceChart expenses={expenses} loanRecords={loanRecords} />
 
-      {/* Tabs + content */}
+      {/* Tabs */}
       <Card padding="p-0" className="overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 border-b border-navy-700">
           <Tabs
@@ -286,7 +464,10 @@ export default function PersonalExpensesPage() {
               },
             ]}
             active={activeTab}
-            onChange={setActiveTab}
+            onChange={(value) => {
+              setActiveTab(value);
+              setEditTarget(null);
+            }}
           />
         </div>
 
@@ -299,7 +480,7 @@ export default function PersonalExpensesPage() {
             searchPlaceholder={
               activeTab === 'expenses'
                 ? 'Search by category, payment, or amount...'
-                : 'Search by name, type, or amount...'
+                : 'Search by name, purpose, type, or amount...'
             }
             onClear={() => {
               setSearchDate('');
@@ -359,30 +540,47 @@ export default function PersonalExpensesPage() {
         </div>
       </Card>
 
+      {/* Charts */}
       {activeTab === 'expenses' ? (
         <ExpenseCharts expenses={expenses} />
       ) : (
         <LoanChart totalGiven={totalGiven} totalTaken={totalTaken} />
       )}
 
+      {/* Add / Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={activeTab === 'expenses' ? 'Add Expense' : 'Add Loan'}
+        onClose={handleModalClose}
+        title={
+          activeTab === 'expenses'
+            ? editTarget
+              ? 'Edit Expense'
+              : 'Add Expense'
+            : editTarget
+              ? 'Edit Loan'
+              : 'Add Loan'
+        }
       >
         {activeTab === 'expenses' ? (
           <ExpenseForm
+            initialData={
+              editTarget?.type === 'expense' ? editTarget.data : undefined
+            }
             onSubmit={handleExpenseSubmit}
-            onCancel={() => setIsModalOpen(false)}
+            onCancel={handleModalClose}
           />
         ) : (
           <LoanForm
+            initialData={
+              editTarget?.type === 'loan' ? editTarget.data : undefined
+            }
             onSubmit={handleLoanSubmit}
-            onCancel={() => setIsModalOpen(false)}
+            onCancel={handleModalClose}
           />
         )}
       </Modal>
 
+      {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -398,6 +596,24 @@ export default function PersonalExpensesPage() {
             : 'This record will be permanently removed.'
         }
       />
+
+      {/* Proof Preview */}
+      <Modal
+        isOpen={!!proofPreview}
+        onClose={() => setProofPreview(null)}
+        title={proofPreview?.name || 'Payment Proof'}
+        maxWidth="max-w-3xl"
+      >
+        {proofPreview?.src && (
+          <div className="flex justify-center">
+            <img
+              src={proofPreview.src}
+              alt={proofPreview.name || 'Payment Proof'}
+              className="max-w-full max-h-[70vh] object-contain rounded-lg"
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -9,7 +9,10 @@ export function useLoan() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setLoanRecords(JSON.parse(stored));
+
+      if (stored) {
+        setLoanRecords(JSON.parse(stored));
+      }
     } catch (err) {
       console.error('Failed to load loan records from localStorage:', err);
     } finally {
@@ -19,6 +22,7 @@ export function useLoan() {
 
   useEffect(() => {
     if (isLoading) return;
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(loanRecords));
   }, [loanRecords, isLoading]);
 
@@ -26,27 +30,41 @@ export function useLoan() {
     const newRecord = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       ...data,
     };
+
     setLoanRecords((prev) => [newRecord, ...prev]);
   };
 
   const updateLoan = (id, updates) => {
     setLoanRecords((prev) =>
-      prev.map((rec) => (rec.id === id ? { ...rec, ...updates } : rec))
+      prev.map((record) =>
+        record.id === id
+          ? {
+              ...record,
+              ...updates,
+              updatedAt: new Date().toISOString(),
+            }
+          : record
+      )
     );
   };
 
   const deleteLoan = (id) => {
-    setLoanRecords((prev) => prev.filter((rec) => rec.id !== id));
+    setLoanRecords((prev) => prev.filter((record) => record.id !== id));
   };
 
   const toggleStatus = (id) => {
     setLoanRecords((prev) =>
-      prev.map((rec) =>
-        rec.id === id
-          ? { ...rec, status: rec.status === 'Paid' ? 'Pending' : 'Paid' }
-          : rec
+      prev.map((record) =>
+        record.id === id
+          ? {
+              ...record,
+              status: record.status === 'Paid' ? 'Pending' : 'Paid',
+              updatedAt: new Date().toISOString(),
+            }
+          : record
       )
     );
   };

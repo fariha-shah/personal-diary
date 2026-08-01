@@ -10,6 +10,7 @@ import {
 } from 'date-fns';
 
 import Card from '../../../components/common/Card';
+import { getEventColor } from '../services/eventColors';
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -53,20 +54,23 @@ export default function MonthCalendar({
   };
 
   return (
-    <Card padding="p-0" className="overflow-hidden">
+    <Card
+      padding="p-0"
+      className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm"
+    >
       {/* Weekdays */}
-      <div className="grid grid-cols-7 border-b border-navy-700 bg-navy-900/40">
+      <div className="grid grid-cols-7 border-b border-violet-100 bg-violet-50/60">
         {WEEK_DAYS.map((day) => (
           <div
             key={day}
-            className="border-r border-navy-700 px-1 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-text-muted last:border-r-0 sm:text-xs"
+            className="border-r border-violet-100 px-1 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-violet-400 last:border-r-0"
           >
             {day}
           </div>
         ))}
       </div>
 
-      {/* Days */}
+      {/* Calendar days */}
       <div className="grid grid-cols-7">
         {calendarDays.map((day) => {
           const dateString = format(day, 'yyyy-MM-dd');
@@ -87,91 +91,81 @@ export default function MonthCalendar({
               type="button"
               onClick={() => onSelectDate(day)}
               className={`
-                group relative min-h-[82px]
-                border-b border-r border-navy-700
-                p-1.5 text-left transition-colors
+                group relative min-h-[62px]
+                border-b border-r border-violet-100
+                bg-white p-1.5 text-left
+                transition-all duration-200
                 last:border-r-0
-                sm:min-h-[96px] sm:p-2
-                hover:bg-navy-700/30
-                ${currentMonth ? 'bg-navy-800' : 'bg-navy-900/35'}
-                ${selected ? 'bg-accent-blue/5' : ''}
+                hover:bg-violet-50/50
+                sm:min-h-[74px] sm:p-2
+                ${!currentMonth ? 'bg-slate-50/70' : ''}
+                ${selected ? 'bg-violet-50/70' : ''}
               `}
             >
-              {/* Date */}
+              {/* Date header */}
               <div className="flex items-center justify-between">
                 <span
                   className={`
-                    flex h-6 w-6 items-center
-                    justify-center rounded-full
-                    text-[11px] font-semibold
-                    sm:h-7 sm:w-7 sm:text-xs
+                    flex h-5 w-5 items-center justify-center
+                    rounded-full text-[10px] font-semibold
+                    transition-all duration-200
+                    sm:h-6 sm:w-6 sm:text-[11px]
                     ${
                       today
-                        ? 'bg-accent-blue text-white'
-                        : currentMonth
-                          ? 'text-text-primary'
-                          : 'text-text-muted'
+                        ? 'bg-violet-600 text-white shadow-sm shadow-violet-300'
+                        : selected
+                          ? 'bg-violet-100 text-violet-600 ring-1 ring-violet-200'
+                          : currentMonth
+                            ? 'text-slate-700 group-hover:text-violet-600'
+                            : 'text-slate-300'
                     }
                   `}
                 >
                   {format(day, 'd')}
                 </span>
 
-                <div className="flex items-center gap-1">
-                  {/* Diary indicator */}
-                  {hasDiaryEntry && (
-                    <span
-                      title="Diary entry available"
-                      className="h-1.5 w-1.5 rounded-full bg-accent-blue"
-                    />
-                  )}
-
-                  {/* Selected indicator */}
-                  {selected && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-accent-blue" />
-                  )}
-                </div>
+                {hasDiaryEntry && (
+                  <span
+                    title="Diary entry available"
+                    className="h-1.5 w-1.5 rounded-full bg-violet-500 ring-2 ring-violet-100"
+                  />
+                )}
               </div>
 
-              {/* Items */}
-              <div className="mt-1.5 space-y-1">
+              {/* Events */}
+              <div className="mt-1 space-y-1">
                 {items.slice(0, 2).map((item) => {
                   const holiday = item.type === 'holiday';
+                  const color = getEventColor(item.color);
 
                   return (
                     <div
                       key={item.id}
                       title={item.title}
                       className={`
-                          truncate rounded px-1.5
-                          py-0.5 text-[9px]
-                          font-medium leading-4
-                          sm:text-[10px]
-                          ${
-                            holiday
-                              ? 'bg-accent-red/10 text-accent-red'
-                              : 'bg-accent-blue/10 text-accent-blue'
-                          }
-                        `}
+                        truncate rounded-md border px-1 py-0.5
+                        text-[8px] font-medium leading-none
+                        transition-all duration-200
+                        sm:text-[9px]
+                        ${
+                          holiday
+                            ? 'border-red-100 bg-red-50 text-red-500'
+                            : `${color.border} ${color.bg} ${color.text}`
+                        }
+                      `}
                     >
+                      {item.startTime ? `${item.startTime} · ` : ''}
                       {item.title}
                     </div>
                   );
                 })}
 
                 {items.length > 2 && (
-                  <span className="block px-1 text-[9px] text-text-muted">
+                  <span className="block px-0.5 text-[8px] font-medium text-slate-400">
                     +{items.length - 2} more
                   </span>
                 )}
               </div>
-
-              {/* Diary label */}
-              {hasDiaryEntry && (
-                <span className="absolute bottom-1.5 right-1.5 text-[8px] font-medium text-accent-blue opacity-0 transition-opacity group-hover:opacity-100 sm:bottom-2 sm:right-2">
-                  Diary
-                </span>
-              )}
             </button>
           );
         })}

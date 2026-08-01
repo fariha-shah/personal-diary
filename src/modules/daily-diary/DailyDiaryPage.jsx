@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-
-import { FiPlus, FiBookOpen } from 'react-icons/fi';
+import { FiPlus, FiBookOpen, FiPenTool, FiChevronLeft } from 'react-icons/fi';
 
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -13,9 +12,7 @@ import { useDiary } from './hooks/useDiary';
 
 export default function DailyDiaryPage({ entryToOpen = null, onEntryOpened }) {
   const [mobileView, setMobileView] = useState('list');
-
   const [activeEntryId, setActiveEntryId] = useState(null);
-
   const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const { entries, addEntry, updateEntry, deleteEntry } = useDiary();
@@ -24,39 +21,25 @@ export default function DailyDiaryPage({ entryToOpen = null, onEntryOpened }) {
     entries.find((entry) => entry.id === activeEntryId) || null;
 
   useEffect(() => {
-    if (!entryToOpen || entries.length === 0) {
-      return;
-    }
+    if (!entryToOpen || entries.length === 0) return;
 
     const entryExists = entries.some((entry) => entry.id === entryToOpen);
 
-    if (!entryExists) {
-      return;
-    }
+    if (!entryExists) return;
 
     setActiveEntryId(entryToOpen);
     setMobileView('editor');
 
-    /*
-     * Tell App that the entry has
-     * already been opened.
-     */
     if (onEntryOpened) {
       onEntryOpened();
     }
   }, [entryToOpen, entries, onEntryOpened]);
 
-  /*
-   * Select an entry from the list.
-   */
   const handleSelectEntry = (id) => {
     setActiveEntryId(id);
     setMobileView('editor');
   };
 
-  /*
-   * Create a new diary entry.
-   */
   const handleNewEntry = () => {
     const id = addEntry({});
 
@@ -64,13 +47,8 @@ export default function DailyDiaryPage({ entryToOpen = null, onEntryOpened }) {
     setMobileView('editor');
   };
 
-  /*
-   * Delete confirmation.
-   */
   const handleDeleteConfirmed = () => {
-    if (!deleteTargetId) {
-      return;
-    }
+    if (!deleteTargetId) return;
 
     deleteEntry(deleteTargetId);
 
@@ -83,39 +61,76 @@ export default function DailyDiaryPage({ entryToOpen = null, onEntryOpened }) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] flex-col animate-[fadeIn_0.35s_ease-out]">
-      {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold text-text-primary">
-          Daily Diary
-        </h1>
+    <div className="min-h-[calc(100vh-3rem)] animate-[fadeIn_0.35s_ease-out]">
+      {/* Page Header */}
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+              <FiPenTool size={19} />
+            </div>
 
-        <p className="mt-1 text-sm text-text-secondary">
-          Write down your day, one entry at a time.
-        </p>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-800">
+                My Diary
+              </h1>
+
+              <p className="text-sm text-slate-400 mt-0.5">
+                Capture your thoughts, memories and everyday moments.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Button
+          icon={FiPlus}
+          onClick={handleNewEntry}
+          className="
+            !bg-purple-500
+            hover:!bg-purple-600
+            shadow-sm
+            hover:shadow-md
+          "
+        >
+          New Entry
+        </Button>
       </div>
 
-      {/* Main Diary Layout */}
-      <div className="flex min-h-0 flex-1 gap-4">
-        {/* Entries List */}
+      {/* Diary */}
+      <div className="flex min-h-[calc(100vh-11rem)] gap-4">
+        {/* Entry List */}
         <Card
           padding="p-0"
           className={`
-            w-full shrink-0 flex-col
-            overflow-hidden lg:w-80
+            w-full shrink-0 overflow-hidden
+            lg:w-80
+            !bg-white
+            border border-slate-200
+            shadow-sm
             ${mobileView === 'list' ? 'flex' : 'hidden lg:flex'}
+            flex-col
           `}
         >
           {/* List Header */}
-          <div className="flex items-center justify-between border-b border-navy-700 p-4">
-            <h2 className="font-medium text-text-primary">Entries</h2>
+          <div className="border-b border-slate-100 bg-purple-50/60 px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-800">
+                  Journal Entries
+                </h2>
 
-            <Button size="sm" icon={FiPlus} onClick={handleNewEntry}>
-              New
-            </Button>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+                </p>
+              </div>
+
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-purple-500 shadow-sm">
+                <FiBookOpen size={17} />
+              </div>
+            </div>
           </div>
 
-          {/* Entry List */}
+          {/* Entries */}
           <div className="flex-1 overflow-y-auto">
             <EntryList
               entries={entries}
@@ -129,18 +144,30 @@ export default function DailyDiaryPage({ entryToOpen = null, onEntryOpened }) {
         <Card
           padding="p-0"
           className={`
-            flex-1 flex-col
+            flex-1
+            !bg-white
+            border border-slate-200
+            shadow-sm
             overflow-hidden
             ${mobileView === 'editor' ? 'flex' : 'hidden lg:flex'}
+            flex-col
           `}
         >
-          {/* Mobile Back */}
+          {/* Mobile back */}
           <button
             type="button"
             onClick={() => setMobileView('list')}
-            className="px-4 pt-4 text-left text-sm text-text-secondary hover:text-text-primary lg:hidden"
+            className="
+              flex items-center gap-1
+              px-5 pt-4
+              text-sm text-slate-400
+              hover:text-purple-500
+              transition-colors
+              lg:hidden
+            "
           >
-            ← Back to entries
+            <FiChevronLeft size={16} />
+            Back to entries
           </button>
 
           <div className="min-h-0 flex-1">
@@ -151,11 +178,11 @@ export default function DailyDiaryPage({ entryToOpen = null, onEntryOpened }) {
                 onDelete={() => setDeleteTargetId(activeEntry.id)}
               />
             ) : (
-              <div className="flex h-full items-center justify-center px-4">
+              <div className="flex h-full items-center justify-center px-6">
                 <EmptyState
-                  icon={FiBookOpen}
-                  message="Select an entry to view"
-                  subMessage="Or create a new one to start writing."
+                  icon={FiPenTool}
+                  message="Start writing your story"
+                  subMessage="Select an entry from the left or create a new diary entry."
                 />
               </div>
             )}
@@ -163,7 +190,6 @@ export default function DailyDiaryPage({ entryToOpen = null, onEntryOpened }) {
         </Card>
       </div>
 
-      {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={Boolean(deleteTargetId)}
         onClose={() => setDeleteTargetId(null)}

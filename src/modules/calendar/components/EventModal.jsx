@@ -4,6 +4,7 @@ import Button from '../../../components/common/Button';
 import Modal from '../../../components/common/Modal';
 
 import { REMINDER_OPTIONS } from '../services/reminderService';
+import { EVENT_COLORS } from '../services/eventColors';
 
 const EMPTY_FORM = {
   title: '',
@@ -12,7 +13,13 @@ const EMPTY_FORM = {
   endTime: '',
   description: '',
   reminder: 0,
+  color: 'purple',
 };
+
+const inputClass =
+  'w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-50';
+
+const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600';
 
 export default function EventModal({
   isOpen,
@@ -32,6 +39,7 @@ export default function EventModal({
         endTime: editingEvent.endTime || '',
         description: editingEvent.description || '',
         reminder: Number(editingEvent.reminder) || 0,
+        color: editingEvent.color || 'purple',
       });
 
       return;
@@ -52,6 +60,10 @@ export default function EventModal({
     }));
   };
 
+  const handleSelectColor = (colorId) => {
+    setForm((current) => ({ ...current, color: colorId }));
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
 
@@ -63,6 +75,7 @@ export default function EventModal({
       ...form,
       title: form.title.trim(),
       reminder: Number(form.reminder) || 0,
+      color: form.color || 'purple',
     });
   };
 
@@ -72,12 +85,10 @@ export default function EventModal({
       onClose={onClose}
       title={editingEvent ? 'Edit Event' : 'Add Event'}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Event Title */}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Title */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-text-primary">
-            Event Title
-          </label>
+          <label className={labelClass}>Event Title</label>
 
           <input
             type="text"
@@ -85,65 +96,54 @@ export default function EventModal({
             value={form.title}
             onChange={handleChange}
             placeholder="e.g. Doctor appointment"
-            className="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-blue"
+            className={inputClass}
             required
           />
         </div>
 
-        {/* Date and Time */}
+        {/* Date & time */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {/* Date */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-primary">
-              Date
-            </label>
+            <label className={labelClass}>Date</label>
 
             <input
               type="date"
               name="date"
               value={form.date}
               onChange={handleChange}
-              className="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent-blue"
+              className={inputClass}
               required
             />
           </div>
 
-          {/* Start Time */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-primary">
-              Start
-            </label>
+            <label className={labelClass}>Start</label>
 
             <input
               type="time"
               name="startTime"
               value={form.startTime}
               onChange={handleChange}
-              className="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent-blue"
+              className={inputClass}
             />
           </div>
 
-          {/* End Time */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-primary">
-              End
-            </label>
+            <label className={labelClass}>End</label>
 
             <input
               type="time"
               name="endTime"
               value={form.endTime}
               onChange={handleChange}
-              className="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent-blue"
+              className={inputClass}
             />
           </div>
         </div>
 
         {/* Description */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-text-primary">
-            Description
-          </label>
+          <label className={labelClass}>Description</label>
 
           <textarea
             name="description"
@@ -151,21 +151,40 @@ export default function EventModal({
             onChange={handleChange}
             rows={3}
             placeholder="Add some details..."
-            className="w-full resize-none rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-blue"
+            className={`${inputClass} resize-none`}
           />
+        </div>
+
+        {/* Color */}
+        <div>
+          <label className={labelClass}>Color</label>
+
+          <div className="flex flex-wrap gap-2">
+            {EVENT_COLORS.map((color) => (
+              <button
+                key={color.id}
+                type="button"
+                onClick={() => handleSelectColor(color.id)}
+                className={`h-7 w-7 rounded-full ${color.dot} transition-all ${
+                  form.color === color.id
+                    ? 'ring-2 ring-violet-500 ring-offset-2'
+                    : 'opacity-50 hover:opacity-90'
+                }`}
+                aria-label={color.label}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Reminder */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-text-primary">
-            Reminder
-          </label>
+          <label className={labelClass}>Reminder</label>
 
           <select
             name="reminder"
             value={form.reminder}
             onChange={handleChange}
-            className="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent-blue"
+            className={inputClass}
           >
             {REMINDER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -174,13 +193,14 @@ export default function EventModal({
             ))}
           </select>
 
-          <p className="mt-1.5 text-[11px] text-text-muted">
-            You will receive a browser notification before this event starts.
+          <p className="mt-1.5 text-[11px] text-slate-400">
+            You will get an in-app popup, plus a browser notification if
+            allowed.
           </p>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 border-t border-navy-700 pt-4">
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>

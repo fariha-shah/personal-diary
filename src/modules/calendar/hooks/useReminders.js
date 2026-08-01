@@ -2,29 +2,22 @@ import { useEffect } from 'react';
 
 import {
   isReminderDue,
-  requestNotificationPermission,
   showEventNotification,
 } from '../services/reminderService';
 
-export default function useReminders(events) {
+export default function useReminders(events, onReminderDue) {
   useEffect(() => {
     if (!events?.length) {
       return;
     }
 
-    const checkReminders = async () => {
-      const permission = await requestNotificationPermission();
-
-      if (permission !== 'granted') {
-        return;
-      }
-
+    const checkReminders = () => {
       events.forEach((event) => {
         if (!isReminderDue(event)) {
           return;
         }
 
-        const notificationKey = `reminder-${event.id}-${event.date}-${event.startTime}`;
+        const notificationKey = `reminder-${event.id}-${event.date}-${event.startTime}-${event.reminder}`;
 
         const alreadyShown = sessionStorage.getItem(notificationKey);
 
@@ -32,16 +25,33 @@ export default function useReminders(events) {
           return;
         }
 
-        showEventNotification(event);
-
         sessionStorage.setItem(notificationKey, 'true');
+
+        // Guaranteed: in-app popup, works even if browser notifications are blocked.
+        if (onReminderDue) {
+          onReminderDue(event);
+        }
+
+        // Bonus: try native browser notification too (best effort only).
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          if (Notification.permission === 'granted') {
+            showEventNotification(event);
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then((permission) => {
+              if (permission === 'granted') {
+                showEventNotification(event);
+              }
+            });
+          }
+        }
       });
     };
 
     checkReminders();
 
-    const interval = setInterval(checkReminders, 30 * 1000);
+    // Check more often (15s) so the 60s due-window is never missed.
+    const interval = setInterval(checkReminders, 15 * 1000);
 
     return () => clearInterval(interval);
-  }, [events]);
+  }, [events, onReminderDue]);
 }

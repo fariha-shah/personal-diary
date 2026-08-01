@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchPublicHolidays } from '../services/holidayApi';
+import { getRandomEventColor } from '../services/eventColors';
 
 const STORAGE_KEY = 'personal-diary-calendar-events';
 
@@ -42,6 +43,7 @@ export default function useCalendar() {
       id: crypto.randomUUID(),
       type: 'event',
       ...event,
+      color: event.color || getRandomEventColor(),
     };
 
     setEvents((currentEvents) => [...currentEvents, newEvent]);

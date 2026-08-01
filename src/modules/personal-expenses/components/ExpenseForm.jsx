@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FiUpload, FiX, FiFile } from 'react-icons/fi';
+import { useEffect, useState } from 'react';
+import { FiUpload, FiX, FiFile, FiImage } from 'react-icons/fi';
 
 import Input from '../../../components/common/Input';
 import Dropdown from '../../../components/common/Dropdown';
@@ -8,67 +8,132 @@ import Button from '../../../components/common/Button';
 
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../utils/constants';
 
-const emptyForm = {
+const getEmptyForm = () => ({
   amount: '',
   category: '',
   description: '',
   paymentMethod: '',
   date: new Date().toISOString().slice(0, 10),
-  proof: null, // base64 string or null
+  proof: null,
   proofName: '',
-};
+});
 
-export default function ExpenseForm({ onSubmit, onCancel }) {
-  const [form, setForm] = useState(emptyForm);
+export default function ExpenseForm({ initialData, onSubmit, onCancel }) {
+  const [form, setForm] = useState(getEmptyForm);
   const [errors, setErrors] = useState({});
 
+  const isEditing = Boolean(initialData);
+
+  useEffect(() => {
+    if (initialData) {
+      setForm({
+        amount: initialData.amount ?? '',
+        category: initialData.category || '',
+        description: initialData.description || '',
+        paymentMethod: initialData.paymentMethod || '',
+        date: initialData.date || new Date().toISOString().slice(0, 10),
+        proof: initialData.proof || null,
+        proofName: initialData.proofName || '',
+      });
+    } else {
+      setForm(getEmptyForm());
+    }
+
+    setErrors({});
+  }, [initialData]);
+
   const setField = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    if (errors[field]) {
+      setErrors((prev) => ({
+        ...prev,
+        [field]: undefined,
+      }));
+    }
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
+
     if (!file) return;
 
-    // Basic size guard — localStorage has a ~5MB total limit, so keep
-    // individual proofs reasonably small until real file storage exists.
     if (file.size > 2 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, proof: 'File must be under 2MB' }));
+      setErrors((prev) => ({
+        ...prev,
+        proof: 'File must be under 2MB',
+      }));
       return;
     }
 
     const reader = new FileReader();
+
     reader.onload = () => {
       setForm((prev) => ({
         ...prev,
         proof: reader.result,
         proofName: file.name,
       }));
+
+      setErrors((prev) => ({
+        ...prev,
+        proof: undefined,
+      }));
     };
+
     reader.readAsDataURL(file);
+  };
+
+  const removeProof = () => {
+    setField('proof', null);
+    setField('proofName', '');
   };
 
   const validate = () => {
     const next = {};
-    if (!form.amount || Number(form.amount) <= 0)
+
+    if (!form.amount || Number(form.amount) <= 0) {
       next.amount = 'Enter a valid amount';
-    if (!form.category) next.category = 'Select a category';
-    if (!form.description.trim()) next.description = 'Description is required';
-    if (!form.paymentMethod) next.paymentMethod = 'Select a payment method';
-    if (!form.date) next.date = 'Date is required';
+    }
+
+    if (!form.category) {
+      next.category = 'Select a category';
+    }
+
+    if (!form.description.trim()) {
+      next.description = 'Description is required';
+    }
+
+    if (!form.paymentMethod) {
+      next.paymentMethod = 'Select a payment method';
+    }
+
+    if (!form.date) {
+      next.date = 'Date is required';
+    }
+
     setErrors(next);
+
     return Object.keys(next).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
     if (!validate()) return;
-    onSubmit({ ...form, amount: Number(form.amount) });
+
+    onSubmit({
+      ...form,
+      amount: Number(form.amount),
+    });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Amount */}
       <Input
         label="Amount (PKR)"
         type="number"
@@ -80,15 +145,17 @@ export default function ExpenseForm({ onSubmit, onCancel }) {
         error={errors.amount}
       />
 
+      {/* Category */}
       <Dropdown
         label="Category"
         options={EXPENSE_CATEGORIES}
         value={form.category}
-        onChange={(val) => setField('category', val)}
+        onChange={(value) => setField('category', value)}
         placeholder="Select category"
         error={errors.category}
       />
 
+      {/* Description */}
       <Input
         label="Description"
         placeholder="e.g. Grocery from Metro"
@@ -97,15 +164,17 @@ export default function ExpenseForm({ onSubmit, onCancel }) {
         error={errors.description}
       />
 
+      {/* Payment Method */}
       <Dropdown
         label="Payment Method"
         options={PAYMENT_METHODS}
         value={form.paymentMethod}
-        onChange={(val) => setField('paymentMethod', val)}
+        onChange={(value) => setField('paymentMethod', value)}
         placeholder="Select payment method"
         error={errors.paymentMethod}
       />
 
+      {/* Date */}
       <DatePicker
         label="Date"
         value={form.date}
@@ -113,7 +182,7 @@ export default function ExpenseForm({ onSubmit, onCancel }) {
         error={errors.date}
       />
 
-      {/* Payment Proof upload */}
+      {/* Payment Proof */}
       <div>
         <label className="block text-sm font-medium text-text-secondary mb-1.5">
           Payment Proof (optional)
@@ -137,29 +206,39 @@ export default function ExpenseForm({ onSubmit, onCancel }) {
         ) : (
           <div className="flex items-center justify-between bg-navy-900 border border-navy-700 rounded-lg px-3 py-2.5">
             <div className="flex items-center gap-2 text-text-primary text-sm truncate">
-              <FiFile size={16} className="text-accent-blue shrink-0" />
+              {form.proof.startsWith('data:image') ? (
+                <FiImage size={16} className="text-accent-blue shrink-0" />
+              ) : (
+                <FiFile size={16} className="text-accent-blue shrink-0" />
+              )}
+
               <span className="truncate">{form.proofName}</span>
             </div>
+
             <button
               type="button"
-              onClick={() => setField('proof', null)}
+              onClick={removeProof}
               className="text-text-muted hover:text-accent-red transition-colors shrink-0"
+              title="Remove proof"
             >
               <FiX size={16} />
             </button>
           </div>
         )}
+
         {errors.proof && (
           <p className="text-accent-red text-xs mt-1">{errors.proof}</p>
         )}
       </div>
 
+      {/* Buttons */}
       <div className="flex gap-3 pt-2">
         <Button type="button" variant="secondary" fullWidth onClick={onCancel}>
           Cancel
         </Button>
+
         <Button type="submit" fullWidth>
-          Save Expense
+          {isEditing ? 'Update Expense' : 'Save Expense'}
         </Button>
       </div>
     </form>

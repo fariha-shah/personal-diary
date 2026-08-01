@@ -1,6 +1,7 @@
 import { addDays, format, isSameDay, startOfWeek } from 'date-fns';
 
 import Card from '../../../components/common/Card';
+import { getEventColor } from '../services/eventColors';
 
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
 
@@ -28,14 +29,16 @@ export default function WeekCalendar({
   };
 
   return (
-    <Card padding="p-0" className="overflow-hidden">
+    <Card
+      padding="p-0"
+      className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm"
+    >
       {/* Week header */}
-      <div className="grid grid-cols-[56px_repeat(7,minmax(100px,1fr))] overflow-x-auto border-b border-navy-700">
-        <div className="border-r border-navy-700 bg-navy-900/40" />
+      <div className="grid grid-cols-[46px_repeat(7,minmax(84px,1fr))] overflow-x-auto border-b border-violet-100 bg-violet-50/60">
+        <div className="border-r border-violet-100" />
 
         {weekDays.map((day) => {
           const today = isSameDay(day, new Date());
-
           const selected = isSameDay(day, selectedDate);
 
           return (
@@ -44,21 +47,28 @@ export default function WeekCalendar({
               type="button"
               onClick={() => onSelectDate(day)}
               className={`
-                border-r border-navy-700 px-2 py-3
-                text-center transition-colors
-                hover:bg-navy-900/50
-                ${selected ? 'bg-accent-blue/5' : ''}
+                border-r border-violet-100 px-1.5 py-2
+                text-center transition-all duration-200
+                hover:bg-violet-50
+                ${selected ? 'bg-violet-50' : ''}
               `}
             >
-              <p className="text-[10px] uppercase tracking-wide text-text-muted">
+              <p className="text-[9px] font-medium uppercase tracking-wider text-violet-300">
                 {format(day, 'EEE')}
               </p>
 
               <div
                 className={`
-                  mx-auto mt-1 flex h-7 w-7 items-center
-                  justify-center rounded-full text-xs font-semibold
-                  ${today ? 'bg-accent-blue text-white' : 'text-text-primary'}
+                  mx-auto mt-1 flex h-6 w-6 items-center
+                  justify-center rounded-full text-[10px] font-semibold
+                  transition-all
+                  ${
+                    today
+                      ? 'bg-violet-600 text-white shadow-sm shadow-violet-300'
+                      : selected
+                        ? 'bg-violet-100 text-violet-600'
+                        : 'text-slate-700'
+                  }
                 `}
               >
                 {format(day, 'd')}
@@ -70,14 +80,14 @@ export default function WeekCalendar({
 
       {/* Time grid */}
       <div className="overflow-x-auto">
-        <div className="min-w-[756px]">
+        <div className="min-w-[634px]">
           {HOURS.map((hour) => (
             <div
               key={hour}
-              className="grid min-h-[58px] grid-cols-[56px_repeat(7,minmax(100px,1fr))] border-b border-navy-700 last:border-b-0"
+              className="grid min-h-[46px] grid-cols-[46px_repeat(7,minmax(84px,1fr))] border-b border-violet-50 last:border-b-0"
             >
               {/* Time */}
-              <div className="border-r border-navy-700 px-2 py-2 text-right text-[10px] text-text-muted">
+              <div className="border-r border-violet-100 bg-violet-50/40 px-1.5 py-1.5 text-right text-[9px] font-medium text-slate-400">
                 {format(new Date(2026, 0, 1, hour), 'h a')}
               </div>
 
@@ -94,31 +104,38 @@ export default function WeekCalendar({
                 return (
                   <div
                     key={`${day.toISOString()}-${hour}`}
-                    className="relative border-r border-navy-700 p-1"
+                    className="group relative border-r border-violet-50 p-1 transition-colors hover:bg-violet-50/40"
                   >
-                    {hourEvents.map((event) => (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={() => onEventClick(event)}
-                        className="w-full rounded-md bg-accent-blue/10 px-2 py-1.5 text-left text-[10px] font-medium text-accent-blue transition-colors hover:bg-accent-blue/20"
-                      >
-                        <p className="truncate">{event.title}</p>
+                    {hourEvents.map((event) => {
+                      const color = getEventColor(event.color);
 
-                        {event.startTime && (
-                          <span className="text-[9px] text-text-muted">
-                            {event.startTime}
-                          </span>
-                        )}
-                      </button>
-                    ))}
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => onEventClick(event)}
+                          className={`w-full rounded-lg border px-1.5 py-1.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${color.border} ${color.bg}`}
+                        >
+                          <p
+                            className={`truncate text-[9px] font-semibold ${color.text}`}
+                          >
+                            {event.title}
+                          </p>
 
-                    {/* Empty slot */}
+                          {event.startTime && (
+                            <span className="mt-0.5 block text-[8px] text-slate-400">
+                              {event.startTime}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+
                     {hourEvents.length === 0 && (
                       <button
                         type="button"
                         onClick={() => onSelectDate(day)}
-                        className="absolute inset-0 w-full opacity-0 hover:bg-accent-blue/5"
+                        className="absolute inset-0 w-full rounded opacity-0 transition-opacity hover:bg-violet-50/50 hover:opacity-100"
                         aria-label={`Select ${format(day, 'EEEE')}`}
                       />
                     )}
